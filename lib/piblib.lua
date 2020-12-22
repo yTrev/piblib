@@ -436,7 +436,7 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 
 	local aliases = command.aliases
 	if aliases then
-		local aliasesLocation = mainCommand and mainCommand.subAliases or aliases
+		local aliasesLocation = mainCommand and mainCommand.subcommands or currentCommands
 
 		for _, aliase in ipairs(aliases) do
 			aliase = isCaseInsensitive and lower(isCaseInsensitive) or aliase
@@ -451,8 +451,6 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 	end
 
 	if subcommands then
-		command.subAliases = {}
-
 		local subcommandsTable = {}
 		command.subcommands = subcommandsTable
 
