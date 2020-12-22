@@ -440,7 +440,7 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 		local aliasesLocation = mainCommand and mainCommand.subcommands or currentCommands
 
 		for _, aliase in ipairs(aliases) do
-			aliase = isCaseInsensitive and lower(isCaseInsensitive) or aliase
+			aliase = isCaseInsensitive and lower(aliase) or aliase
 
 			local alreadyInUse = aliasesLocation[aliase]
 			if not alreadyInUse then
