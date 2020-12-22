@@ -412,6 +412,16 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 	end
 
 	local currentCommands = mainCommand and mainCommand.subcommands or self._commands
+
+	defaultOptions = defaultOptions or self._defaultOptions
+	if defaultOptions then
+		for optionName, optionValue in pairs(defaultOptions) do
+			if command[optionName] == nil then
+				command[optionName] = optionValue
+			end
+		end
+	end
+
 	local commandName = command.name
 	local isCaseInsensitive = command.caseInsensitive
 
@@ -423,15 +433,6 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 		return false, self._logger:log(1, 'The name "%s" is already in use!', commandName)
 	else
 		currentCommands[commandName] = command
-	end
-
-	defaultOptions = defaultOptions or self._defaultOptions
-	if defaultOptions then
-		for optionName, optionValue in pairs(defaultOptions) do
-			if command[optionName] == nil then
-				command[optionName] = optionValue
-			end
-		end
 	end
 
 	local aliases = command.aliases
