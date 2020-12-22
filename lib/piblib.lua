@@ -166,10 +166,14 @@ function Piblib:getCommand(commands, name)
 	end
 end
 
----@param requirements table
+---@param requirements table | nil
 ---@param message table
 ---@return boolean | nil
 function Piblib:checkRequirements(requirements, message)
+	if not requirements then
+		return true
+	end
+
 	local user = message.author
 
 	local isOwnerOnly = requirements.ownerOnly
