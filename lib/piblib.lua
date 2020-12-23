@@ -95,7 +95,10 @@ function Piblib:__init(commandOptions, clientOptions)
 	end)
 
 	self:on('messageCreate', function(message)
-		self:_messageCreate(message)
+		local isValid, commandName = self:_messageCreate(message)
+		if not isValid and not (self._ignoreBots and message.author.bot) then
+			self:emit('unprocessedMessage', message, commandName)
+		end
 	end)
 end
 
@@ -301,19 +304,19 @@ function Piblib:_messageCreate(message)
 	local isABot = messageAuthor.bot
 
 	if (self._ignoreSelf and isMe) or (self._ignoreBots and isABot) then
-		return
+		return false
 	end
 
 	local content, arguments, prefix = self:parseContent(message)
 	if not content then
-		return
+		return false
 	end
 
 	local commandName = remove(arguments, 1)
 
 	local command = self:getCommand(self._commands, commandName)
 	if not command then
-		return
+		return false, commandName
 	end
 
 	local subcommands = command.subcommands
@@ -338,7 +341,7 @@ function Piblib:_messageCreate(message)
 			self:replyToMessage(message, reply)
 		end
 
-		return
+		return false, commandName
 	end
 
 	local hasRequirements = self:checkRequirements(command.requirements, message) 
@@ -352,7 +355,7 @@ function Piblib:_messageCreate(message)
 			self:replyToMessage(message, reply)
 		end
 
-		return
+		return false, commandName
 	end
 
 	local deleteAfter = command.deleteAfter
@@ -371,7 +374,7 @@ function Piblib:_messageCreate(message)
 				self:replyToMessage(message, reply, deleteAfter)
 			end
 
-			return
+			return false, commandName
 		end
 	end
 
@@ -392,6 +395,8 @@ function Piblib:_messageCreate(message)
 	elseif not success then
 		self._logger:log(1, 'Command "%s" error: %s', commandName, response)
 	end
+
+	return success
 end
 
 ---@param command table @A table contendo as informações do comando
