@@ -495,7 +495,7 @@ function Piblib:loadCommand(path)
 end
 
 ---@param callback function
-function Piblib:loadComands(callback)
+function Piblib:loadCommands(callback)
 	-- Verificar recursivamente entre as pastas que existem no diretório do caminho dos comandos.
 	readdirRecursive(self._commandsPath, function(error, files)
 		if error then
@@ -542,7 +542,7 @@ function Piblib:reloadCommand(commandName)
 	return self:registerCommand(commandOptions, subcommands)
 end
 
-function Piblib:reloadAllComands()
+function Piblib:reloadAllCommands()
 	local uniqueCommands = {}
 	for commandName, command in pairs(self._commands) do
 		local name = command.name
