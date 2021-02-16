@@ -538,6 +538,7 @@ function Piblib:reloadCommand(commandName)
 	end
 
 	local commandOptions, subcommands = self:loadCommand(path)
+	commandOptions._path = path
 
 	return self:registerCommand(commandOptions, subcommands)
 end
