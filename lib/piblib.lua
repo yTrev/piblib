@@ -41,7 +41,7 @@ local OBRIGATORY_PROPERTIES = constants.OBRIGATORY_PROPERTIES
 local NANO_IN_MS = 1000000
 
 ---@class Piblib
-local Piblib, get = class('piblib', Client)
+local Piblib, get, set = class('piblib', Client)
 
 ---@param str string @A string que vai ser separada
 ---@return table @A string dividida
@@ -566,6 +566,11 @@ end
 ---@return number @A hora em que o recebeu o evento 'ready' pela útlima vez
 function get:uptime()
 	return self._uptime
+end
+
+---@param newEnv table
+function set:env(newEnv)
+	self._env = newEnv
 end
 
 return Piblib
