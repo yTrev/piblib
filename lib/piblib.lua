@@ -38,7 +38,7 @@ local Message = class.classes.Message
 local DEFAULT_SETTINGS = constants.DEFAULT_SETTINGS
 local SPLIT_PATTERN = constants.SPLIT_PATTERN
 local OBRIGATORY_PROPERTIES = constants.OBRIGATORY_PROPERTIES
-local NANO_IN_MS = 1000000
+local NANO_IN_MS = constants.NANO_IN_MS
 
 ---@class Piblib
 local Piblib, get, set = class('piblib', Client)
@@ -69,6 +69,7 @@ function Piblib:__init(commandOptions, clientOptions)
 	self._commands = {}
 	self._cooldowns = {}
 	self._prefixes = {}
+	self._loadedPaths = {}
 
 	self._ignoreSelf = commandOptions.ignoreSelf
 	self._ignoreBots = commandOptions.ignoreBots
@@ -359,7 +360,6 @@ function Piblib:_messageCreate(message)
 	end
 
 	local deleteAfter = command.deleteAfter
-
 	local commandCooldown = command.cooldown
 	if commandCooldown then
 		local isOnCooldown, timeRemaining = self:checkCooldown(command, message)
@@ -379,7 +379,7 @@ function Piblib:_messageCreate(message)
 	end
 
 	local handler = command.handler
-	local success, response, deleteResponse = pcall(handler, message, arguments, {
+	local success, response = pcall(handler, message, arguments, {
 		client = self,
 		name = commandName,
 		prefix = prefix
@@ -471,10 +471,7 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 	end
 
 	if mainCommand then
-		local parentName = mainCommand.name
-		local fullName = string.format('%s %s', parentName, commandName)
-
-		command.fullName = fullName
+		command.fullName = string.format('%s %s', mainCommand.name, commandName)
 	else
 		command.fullName = commandName
 	end
@@ -488,10 +485,10 @@ end
 ---@return table
 function Piblib:loadCommand(path)
 	local splitedPath = splitPath(path)
-	local code = assert(readFileSync(path))
-	local commandFunction = assert(load(code, '@' .. splitedPath[#splitedPath], 't', self._env))
+	local code = readFileSync(path)
+	local loadedCode = code and load(code, '@' .. splitedPath[#splitedPath], 't', self._env)
 
-	return commandFunction()
+	return loadedCode and loadedCode()
 end
 
 ---@param callback function
@@ -504,8 +501,13 @@ function Piblib:loadCommands(callback)
 
 		for _, commandPath in ipairs(files) do
 			local commandOptions, subcommands = self:loadCommand(commandPath)
-			commandOptions._path = commandPath
-			self:registerCommand(commandOptions, subcommands)
+			if commandOptions then
+				self._loadedPaths[commandOptions.name] = commandPath
+
+				self:registerCommand(commandOptions, subcommands)
+			else
+				self._logger:log(1, 'Invalid command: %s', commandPath)
+			end
 		end
 
 		if callback then
@@ -516,45 +518,38 @@ end
 
 ---@param commandName string
 function Piblib:reloadCommand(commandName)
-	local command = self._commands[commandName]
-	local path = command and command._path
+	local path = self._loadedPaths[commandName]
 
 	-- Se o comando não tiver um path, é por que ele não foi gerado sendo carrego pelo
 	-- readdir, logo não temos como recarrega-lo.
-	if not command or not path then
+	if not path then
 		return
+	end
+
+	local command = self._commands[commandName]
+	if command then
+		local aliases = command.aliases
+
+		-- Caso o comando possua alguma aliase, elas serão removidas para que não impessam
+		-- que o comando seja reescrito novamente.
+		if aliases then
+			for _, aliase in ipairs(aliases) do
+				self._commands[aliase] = nil
+			end
+		end
 	end
 
 	self._commands[commandName] = nil
 
-	local aliases = command.aliases
-
-	-- Caso o comando possua alguma aliase, elas serão removidas para que não impessam
-	-- que o comando seja reescrito novamente.
-	if aliases then
-		for _, aliase in ipairs(aliases) do
-			self._commands[aliase] = nil
-		end
-	end
-
-	local commandOptions, subcommands = self:loadCommand(path)
-	commandOptions._path = path
-
-	return self:registerCommand(commandOptions, subcommands)
+	return self:registerCommand(self:loadCommand(path))
 end
 
 function Piblib:reloadAllCommands()
-	local uniqueCommands = {}
-	for commandName, command in pairs(self._commands) do
-		local name = command.name
-
-		if not uniqueCommands[name] then
-			uniqueCommands[name] = true
+	for command in pairs(self._loadedPaths) do
+		local success = self:reloadCommand(command)
+		if not success then
+			self._logger:log(1, 'Failed to reload "%s"', command)
 		end
-	end
-
-	for command in pairs(uniqueCommands) do
-		self:reloadCommand(command)
 	end
 end
 

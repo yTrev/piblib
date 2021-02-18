@@ -19,10 +19,6 @@ local timer = require('timer')
 
 local gsub = string.gsub
 
-local function prependcurDir(curDir, fname)
-	return path.join(curDir, fname)
-end
-
 return function(baseDir, callback)
 	baseDir = gsub(baseDir, '%/$', '') -- strip trailing slash
 
@@ -35,11 +31,11 @@ return function(baseDir, callback)
 				return callback(err)
 			end
 
-			local function recurser(func)
-				local name, type = func()
+			local function recurser(fn)
+				local name, type = fn()
 
 				if name and type then
-					local dir = prependcurDir(curDir, name)
+					local dir = path.join(curDir, fname)
 
 					if type == 'directory' then
 						waitCount = waitCount + 1
@@ -48,7 +44,7 @@ return function(baseDir, callback)
 						table.insert(filesList, dir)
 					end
 
-					recurser(func)
+					recurser(fn)
 				else
 					waitCount = waitCount - 1
 

@@ -5,6 +5,7 @@ local DEFAULT_ENV = setmetatable({
 return {
 	DEFAULT_ENV = DEFAULT_ENV,
 	SPLIT_PATTERN = '%s',
+	NANO_IN_MS = 1000000,
 
 	DEFAULT_SETTINGS = {
 		prefix = {'@mention'},
