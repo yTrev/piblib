@@ -35,7 +35,7 @@ return function(baseDir, callback)
 				local name, type = fn()
 
 				if name and type then
-					local dir = path.join(curDir, fname)
+					local dir = path.join(curDir, name)
 
 					if type == 'directory' then
 						waitCount = waitCount + 1
