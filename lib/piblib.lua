@@ -40,6 +40,20 @@ local SPLIT_PATTERN = constants.SPLIT_PATTERN
 local OBRIGATORY_PROPERTIES = constants.OBRIGATORY_PROPERTIES
 local NANO_IN_MS = constants.NANO_IN_MS
 
+---@param command string
+---@return string
+local function errorHandler(commandName)
+	assert(commandName ~= nil, 'Invalid command!')
+
+	return function(err)
+		if type(err) == 'table' then
+			return err
+		end
+
+		return string.format('"%s" command\n\t%s', string.upper(commandName), debug.traceback(tostring(err), 2))
+	end
+end
+
 ---@class Piblib
 local Piblib, get, set = class('piblib', Client)
 
@@ -393,7 +407,7 @@ function Piblib:_messageCreate(message)
 	end
 
 	local handler = command.handler
-	local success, response = pcall(handler, message, arguments, customArgs)
+	local success, response = xpcall(handler, errorHandler(command.fullName or '?'), message, arguments, customArgs)
 
 	if success and response then
 		local isAMessageObject = isInstance(response, Message)
@@ -403,7 +417,7 @@ function Piblib:_messageCreate(message)
 			self:replyToMessage(message, response, deleteAfter)
 		end
 	elseif not success then
-		self._logger:log(1, 'Command "%s" error: %s', commandName, response)
+		self._logger:log(1, response)
 	end
 
 	return success
