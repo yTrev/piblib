@@ -105,7 +105,7 @@ end
 
 ---@param prefixes table | string
 function Piblib:fixPrefixes(prefixes)
-	prefixes = type(prefixes) ~= 'table' and {prefixes} or prefixes
+	prefixes = type(prefixes) ~= 'table' and { prefixes } or prefixes
 
 	local mentionString = self._mentionString
 	for i, prefix in ipairs(prefixes) do
@@ -119,8 +119,8 @@ end
 ---@param prefixes table @As prefixes que essa guild irá ter
 ---@param insertDefaultPrefixes boolean | nil @Se devemos inserir as prefixes padrões às prefixes do servidor ou não
 function Piblib:updateGuildPrefix(guildId, prefixes, insertDefaultPrefixes)
-	prefixes = type(prefixes) ~= 'table' and {prefixes} or prefixes
-	
+	prefixes = type(prefixes) ~= 'table' and { prefixes } or prefixes
+
 	if insertDefaultPrefixes then
 		for _, defaultPrefix in ipairs(self._defaultPrefix) do
 			insert(prefixes, defaultPrefix)
@@ -156,7 +156,11 @@ end
 ---@param name string @Os comandos
 ---@param commands table
 ---@return table | nil @O comando achado
-function Piblib:getCommand(commands, name)
+function Piblib:getCommand(name, commands)
+	if commands == nil then
+		commands = self._commands
+	end
+
 	local command = commands[name]
 
 	if command then
@@ -172,8 +176,9 @@ end
 
 ---@param requirements table | nil
 ---@param message table
+---@param customArgs table
 ---@return boolean | nil
-function Piblib:checkRequirements(requirements, message)
+function Piblib:checkRequirements(requirements, message, customArgs)
 	if not requirements then
 		return true
 	end
@@ -192,7 +197,7 @@ function Piblib:checkRequirements(requirements, message)
 	end
 
 	local customRequirement = requirements.custom
-	if customRequirement and not customRequirement(message) then
+	if customRequirement and not customRequirement(message, customArgs) then
 		return
 	end
 
@@ -208,8 +213,8 @@ function Piblib:checkRequirements(requirements, message)
 	end
 
 	local guidlRequirements = requirements.guilds
-	if guidlRequirements and not guidlRequirements[guild.id] then 
-		return 
+	if guidlRequirements and not guidlRequirements[guild.id] then
+		return
 	end
 
 	local member = guild:getMember(user.id)
@@ -253,14 +258,17 @@ function Piblib:checkCooldown(command, message)
 		local usersExclusion = cooldownExclusions.users
 		local guildExclusion = cooldownExclusions.guilds
 
-		if (usersExclusion and usersExclusion[userId]) or (guild and guildExclusion and guildExclusion[guild.id]) then
+		if
+			(usersExclusion and usersExclusion[userId])
+			or (guild and guildExclusion and guildExclusion[guild.id])
+		then
 			return
 		end
 	end
 
 	local cooldownList = self._cooldowns[commandName]
 	local onList = cooldownList[userId]
-	local commandCooldown = command.cooldown	
+	local commandCooldown = command.cooldown
 	local now = hrtime()
 
 	if onList then
@@ -273,7 +281,7 @@ function Piblib:checkCooldown(command, message)
 				cooldownList[userId] = nil
 			end),
 
-			endTime = now + (commandCooldown * NANO_IN_MS)
+			endTime = now + (commandCooldown * NANO_IN_MS),
 		}
 	end
 end
@@ -315,7 +323,7 @@ function Piblib:_messageCreate(message)
 
 	local commandName = remove(arguments, 1)
 
-	local command = self:getCommand(self._commands, commandName)
+	local command = self:getCommand(commandName, self._commands)
 	if not command then
 		return false, commandName
 	end
@@ -323,7 +331,7 @@ function Piblib:_messageCreate(message)
 	local subcommands = command.subcommands
 	local firstArg = arguments[1]
 
-	local isSubcommand = subcommands and subcommands[firstArg] and self:getCommand(subcommands, firstArg)
+	local isSubcommand = subcommands and subcommands[firstArg] and self:getCommand(firstArg, subcommands)
 	if isSubcommand then
 		table.remove(arguments, 1)
 		command = isSubcommand
@@ -336,8 +344,8 @@ function Piblib:_messageCreate(message)
 		local invalidUsageMessage = commandMessages.invalidUsage
 		if invalidUsageMessage then
 			local invalidUsageType = type(invalidUsageMessage)
-			local reply = invalidUsageType == 'string' and gsub(invalidUsageMessage, '[prefix]', prefix) or 
-				invalidUsageMessage(message)
+			local reply = invalidUsageType == 'string' and gsub(invalidUsageMessage, '[prefix]', prefix)
+				or invalidUsageMessage(message)
 
 			self:replyToMessage(message, reply)
 		end
@@ -345,13 +353,19 @@ function Piblib:_messageCreate(message)
 		return false, commandName
 	end
 
-	local hasRequirements = self:checkRequirements(command.requirements, message) 
+	local customArgs = {
+		client = self,
+		name = commandName,
+		prefix = prefix,
+	}
+
+	local hasRequirements = self:checkRequirements(command.requirements, message, customArgs)
 	if not hasRequirements then
 		local invalidPermissionMessage = commandMessages.invalidPermissions
 		if invalidPermissionMessage then
 			local invalidPermissionType = type(invalidPermissionMessage)
-			local reply = invalidPermissionType == 'string' and invalidPermissionMessage or 
-				invalidPermissionType(message)
+			local reply = invalidPermissionType == 'string' and invalidPermissionMessage
+				or invalidPermissionType(message)
 
 			self:replyToMessage(message, reply)
 		end
@@ -368,9 +382,9 @@ function Piblib:_messageCreate(message)
 			local cooldownMessage = commandMessages.cooldown
 			if cooldownMessage then
 				local cooldownMessageType = type(cooldownMessage)
-				local reply = cooldownMessageType == 'string' and gsub(cooldownMessage, '[time]', timeRemaining) or 
-					cooldownMessage(message, timeRemaining)
-	
+				local reply = cooldownMessageType == 'string' and gsub(cooldownMessage, '[time]', timeRemaining)
+					or cooldownMessage(message, timeRemaining)
+
 				self:replyToMessage(message, reply, deleteAfter)
 			end
 
@@ -379,11 +393,7 @@ function Piblib:_messageCreate(message)
 	end
 
 	local handler = command.handler
-	local success, response = pcall(handler, message, arguments, {
-		client = self,
-		name = commandName,
-		prefix = prefix
-	})
+	local success, response = pcall(handler, message, arguments, customArgs)
 
 	if success and response then
 		local isAMessageObject = isInstance(response, Message)
@@ -463,7 +473,8 @@ function Piblib:registerCommand(command, subcommands, mainCommand, defaultOption
 		for subcommandName, subcommandOptions in pairs(subcommands) do
 			subcommandOptions.name = subcommandName
 
-			local success, subcommand = self:registerCommand(subcommandOptions, nil, command, command.defaultOptions)
+			local success, subcommand =
+				self:registerCommand(subcommandOptions, nil, command, command.defaultOptions)
 			if success then
 				subcommandsTable[subcommand.name] = subcommand
 			end
